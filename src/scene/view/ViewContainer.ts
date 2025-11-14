@@ -160,12 +160,7 @@ export abstract class ViewContainer<GPU_DATA extends GPUData = any> extends Cont
 
         this._bounds = null;
 
-        for (const key in this._gpuData)
-        {
-            (this._gpuData[key] as GPU_DATA).destroy?.();
-        }
-
-        this._gpuData = null;
+        this.unload();
     }
 
     /**

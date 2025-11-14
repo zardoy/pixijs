@@ -8,6 +8,7 @@ import type { ChildrenHelperMixin } from './container/container-mixins/childrenH
 import type { EffectsMixin, EffectsMixinConstructor } from './container/container-mixins/effectsMixin';
 import type { FindMixin, FindMixinConstructor } from './container/container-mixins/findMixin';
 import type { GetGlobalMixin } from './container/container-mixins/getGlobalMixin';
+import type { GPUDataMixin } from './container/container-mixins/gpuDataMixin';
 import type { MeasureMixin, MeasureMixinConstructor } from './container/container-mixins/measureMixin';
 import type { OnRenderMixin, OnRenderMixinConstructor } from './container/container-mixins/onRenderMixin';
 import type { SortMixin, SortMixinConstructor } from './container/container-mixins/sortMixin';
@@ -25,6 +26,7 @@ declare global
             MeasureMixin,
             EffectsMixin,
             FindMixin,
+            GPUDataMixin,
             SortMixin,
             GetGlobalMixin,
             CollectRenderablesMixin,

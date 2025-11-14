@@ -12,6 +12,7 @@ export * from './container/container-mixins/effectsMixin';
 export * from './container/container-mixins/findMixin';
 export * from './container/container-mixins/getFastGlobalBoundsMixin';
 export * from './container/container-mixins/getGlobalMixin';
+export * from './container/container-mixins/gpuDataMixin';
 export * from './container/container-mixins/measureMixin';
 export * from './container/container-mixins/onRenderMixin';
 export * from './container/container-mixins/sortMixin';

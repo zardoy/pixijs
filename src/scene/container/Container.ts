@@ -17,6 +17,7 @@ import { effectsMixin } from './container-mixins/effectsMixin';
 import { findMixin } from './container-mixins/findMixin';
 import { getFastGlobalBoundsMixin } from './container-mixins/getFastGlobalBoundsMixin';
 import { bgr2rgb, getGlobalMixin } from './container-mixins/getGlobalMixin';
+import { gpuDataMixin } from './container-mixins/gpuDataMixin';
 import { measureMixin } from './container-mixins/measureMixin';
 import { onRenderMixin } from './container-mixins/onRenderMixin';
 import { sortMixin } from './container-mixins/sortMixin';
@@ -901,6 +902,9 @@ export class Container<C extends ContainerChild = ContainerChild> extends EventE
 
     /** @internal */
     public readonly renderPipeId: string;
+
+    /** @internal */
+    public _gpuData: Record<number, unknown> = Object.create(null);
 
     /**
      * An optional bounds area for this container. Setting this rectangle will stop the renderer
@@ -2118,6 +2122,7 @@ extensions.mixin(
     measureMixin,
     effectsMixin,
     findMixin,
+    gpuDataMixin,
     sortMixin,
     cullingMixin,
     cacheAsTextureMixin,
