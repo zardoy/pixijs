@@ -7,6 +7,7 @@ import { Texture } from '../../../rendering/renderers/shared/texture/Texture';
 import { uid } from '../../../utils/data/uid';
 import { deprecation, v8_0_0 } from '../../../utils/logging/deprecation';
 import { Bounds } from '../../container/bounds/Bounds';
+import { type GpuGraphicsContext } from './GraphicsContextSystem';
 import { GraphicsPath } from './path/GraphicsPath';
 import { SVGParser } from './svg/SVGParser';
 import { toFillStyle, toStrokeStyle } from './utils/convertFillInputToFillStyle';
@@ -83,6 +84,9 @@ export class GraphicsContext extends EventEmitter<{
     destroy: GraphicsContext
 }>
 {
+    /** @internal */
+    public _gpuData: Record<number | string, GpuGraphicsContext> = Object.create(null);
+
     /** The default fill style to use when none is provided. */
     public static defaultFillStyle: ConvertedFillStyle = {
         /** The color to use for the fill. */
@@ -1236,6 +1240,13 @@ export class GraphicsContext extends EventEmitter<{
                     : this._strokeStyle.texture.destroy(destroyTextureSource);
             }
         }
+
+        for (const key in this._gpuData)
+        {
+            this._gpuData[key].destroy?.();
+        }
+
+        this._gpuData = Object.create(null);
 
         this._fillStyle = null;
         this._strokeStyle = null;

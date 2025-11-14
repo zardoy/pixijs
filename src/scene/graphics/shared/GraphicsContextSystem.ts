@@ -9,7 +9,6 @@ import { buildContextBatches } from './utils/buildContextBatches';
 
 import type { System } from '../../../rendering/renderers/shared/system/System';
 import type { Renderer } from '../../../rendering/renderers/types';
-import type { PoolItem } from '../../../utils/pool/Pool';
 import type { BatchableGraphics } from './BatchableGraphics';
 import type { GraphicsContext } from './GraphicsContext';
 
@@ -37,6 +36,38 @@ export class GpuGraphicsContext
         indices: [],
     };
     public graphicsData: GraphicsContextRenderData;
+
+    public reset()
+    {
+        if (this.batches)
+        {
+            this.batches.forEach((batch) =>
+            {
+                BigPool.return(batch);
+            });
+        }
+        if (this.graphicsData)
+        {
+            BigPool.return(this.graphicsData);
+        }
+
+        this.isBatchable = false;
+        this.context = null;
+
+        this.batches.length = 0;
+        this.geometryData.indices.length = 0;
+        this.geometryData.vertices.length = 0;
+        this.geometryData.uvs.length = 0;
+
+        this.graphicsData = null;
+    }
+
+    public destroy()
+    {
+        this.reset();
+        this.batches = null;
+        this.geometryData = null;
+    }
 }
 
 /**
@@ -118,18 +149,11 @@ export class GraphicsContextSystem implements System<GraphicsContextSystemOption
         bezierSmoothness: 0.5,
     };
 
-    // the root context batches, used to either make a batch or geometry
-    // all graphics use this as a base
-    private _gpuContextHash: Record<number, GpuGraphicsContext> = {};
-    // used for non-batchable graphics
-    private _graphicsDataContextHash: Record<number, GraphicsContextRenderData> = Object.create(null);
     private readonly _renderer: Renderer;
 
     constructor(renderer: Renderer)
     {
         this._renderer = renderer;
-        renderer.renderableGC.addManagedHash(this, '_gpuContextHash');
-        renderer.renderableGC.addManagedHash(this, '_graphicsDataContextHash');
     }
 
     /**
@@ -149,7 +173,7 @@ export class GraphicsContextSystem implements System<GraphicsContextSystemOption
      */
     public getContextRenderData(context: GraphicsContext): GraphicsContextRenderData
     {
-        return this._graphicsDataContextHash[context.uid] || this._initContextRenderData(context);
+        return context._gpuData[this._renderer.uid].graphicsData || this._initContextRenderData(context);
     }
 
     /**
@@ -161,19 +185,14 @@ export class GraphicsContextSystem implements System<GraphicsContextSystemOption
      */
     public updateGpuContext(context: GraphicsContext)
     {
-        let gpuContext: GpuGraphicsContext = this._gpuContextHash[context.uid]
-
-            || this._initContext(context);
+        const hasContext = !!context._gpuData[this._renderer.uid];
+        const gpuContext: GpuGraphicsContext = context._gpuData[this._renderer.uid] ?? this._initContext(context);
 
         if (context.dirty)
         {
-            if (gpuContext)
+            if (hasContext)
             {
-                this._cleanGraphicsContextData(context);
-            }
-            else
-            {
-                gpuContext = this._initContext(context);
+                gpuContext.reset();
             }
 
             buildContextBatches(context, gpuContext);
@@ -208,7 +227,7 @@ export class GraphicsContextSystem implements System<GraphicsContextSystemOption
      */
     public getGpuContext(context: GraphicsContext): GpuGraphicsContext
     {
-        return this._gpuContextHash[context.uid] || this._initContext(context);
+        return context._gpuData[this._renderer.uid] || this._initContext(context);
     }
 
     private _initContextRenderData(context: GraphicsContext): GraphicsContextRenderData
@@ -217,7 +236,10 @@ export class GraphicsContextSystem implements System<GraphicsContextSystemOption
             maxTextures: this._renderer.limits.maxBatchableTextures,
         });
 
-        const { batches, geometryData } = this._gpuContextHash[context.uid];
+        const gpuContext = context._gpuData[this._renderer.uid];
+        const { batches, geometryData } = gpuContext;
+
+        gpuContext.graphicsData = graphicsData;
 
         const vertexSize = geometryData.vertices.length;
         const indexSize = geometryData.indices.length;
@@ -265,8 +287,6 @@ export class GraphicsContextSystem implements System<GraphicsContextSystemOption
             );
         }
 
-        this._graphicsDataContextHash[context.uid] = graphicsData;
-
         return graphicsData;
     }
 
@@ -276,59 +296,13 @@ export class GraphicsContextSystem implements System<GraphicsContextSystemOption
 
         gpuContext.context = context;
 
-        this._gpuContextHash[context.uid] = gpuContext;
+        context._gpuData[this._renderer.uid] = gpuContext;
 
-        context.on('destroy', this.onGraphicsContextDestroy, this);
-
-        return this._gpuContextHash[context.uid];
-    }
-
-    protected onGraphicsContextDestroy(context: GraphicsContext)
-    {
-        this._cleanGraphicsContextData(context);
-
-        context.off('destroy', this.onGraphicsContextDestroy, this);
-
-        this._gpuContextHash[context.uid] = null;
-    }
-
-    private _cleanGraphicsContextData(context: GraphicsContext)
-    {
-        const gpuContext: GpuGraphicsContext = this._gpuContextHash[context.uid];
-
-        if (!gpuContext.isBatchable)
-        {
-            if (this._graphicsDataContextHash[context.uid])
-            {
-                BigPool.return(this.getContextRenderData(context) as PoolItem);
-
-                // we will rebuild this...
-                this._graphicsDataContextHash[context.uid] = null;
-            }
-        }
-
-        if (gpuContext.batches)
-        {
-            gpuContext.batches.forEach((batch) =>
-            {
-                BigPool.return(batch as PoolItem);
-            });
-        }
+        return gpuContext;
     }
 
     public destroy()
     {
-        // Clean up all graphics contexts
-        for (const i in this._gpuContextHash)
-        {
-            if (this._gpuContextHash[i])
-            {
-                this.onGraphicsContextDestroy(this._gpuContextHash[i].context);
-            }
-        }
-
-        this._gpuContextHash = {};
-        this._graphicsDataContextHash = {};
         (this._renderer as null) = null;
     }
 }
